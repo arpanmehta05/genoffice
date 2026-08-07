@@ -110,6 +110,22 @@ function isGridKeyTarget(target: EventTarget | null): boolean {
   return target.closest('#univer-container') !== null && target.closest('.shape-editable') === null
 }
 
+function gridNavigationCommand(event: KeyboardEvent): string | null {
+  if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return null
+  switch (event.key) {
+    case 'Home':
+      return 'navigate:home'
+    case 'End':
+      return 'navigate:end'
+    case 'PageUp':
+      return 'navigate:page-up'
+    case 'PageDown':
+      return 'navigate:page-down'
+    default:
+      return null
+  }
+}
+
 function stepFontSize(current: number, direction: 1 | -1): number {
   if (direction === 1) {
     return FONT_SIZE_LADDER.find((size) => size > current) ?? FONT_SIZE_LADDER.at(-1) ?? current
@@ -300,6 +316,13 @@ export function ExcelShell({
   const [chartTextTarget, setChartTextTarget] = useState<ChartTextTarget | null>(null)
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
+      const navigation = gridNavigationCommand(event)
+      if (navigation && !isInlineTextEditor(event.target) && isGridKeyTarget(event.target)) {
+        event.preventDefault()
+        event.stopPropagation()
+        onCommand(navigation)
+        return
+      }
       // Let the Univer cell editor and the shell's own inputs handle their
       // native editing keys. A grid selection, including disjoint ranges,
       // routes through the ribbon action so it shares the undoable command

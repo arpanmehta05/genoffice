@@ -191,3 +191,42 @@ describe('handleRibbonCommand clear contents', () => {
     expect(executeCommand).not.toHaveBeenCalled()
   })
 })
+
+describe('handleRibbonCommand grid navigation', () => {
+  it('moves Home, End, and Page keys through the active sheet facade', () => {
+    const active = { getRow: () => 40, getColumn: () => 5 }
+    const dataEnd = { getRow: () => 40, getColumn: () => 12 }
+    const getRange = vi.fn((row: number, column: number) => ({ getRow: () => row, getColumn: () => column }))
+    const scrollToCell = vi.fn()
+    const setActiveRange = vi.fn()
+    const worksheet = {
+      getSelection: () => ({
+        getActiveRange: () => active,
+        getNextDataRange: () => dataEnd,
+      }),
+      getRange,
+      getMaxRows: () => 100,
+      getMaxColumns: () => 20,
+      scrollToCell,
+    }
+    const ctx = {
+      univerRef: {
+        current: {
+          univerAPI: { getActiveWorkbook: () => ({ getActiveSheet: () => worksheet, setActiveRange }) },
+        },
+      },
+    } as unknown as RibbonCommandContext
+
+    handleRibbonCommand(ctx, 'navigate:home')
+    handleRibbonCommand(ctx, 'navigate:end')
+    handleRibbonCommand(ctx, 'navigate:page-up')
+    handleRibbonCommand(ctx, 'navigate:page-down')
+
+    expect(getRange).toHaveBeenCalledWith(40, 0)
+    expect(setActiveRange).toHaveBeenCalledTimes(4)
+    expect(scrollToCell).toHaveBeenNthCalledWith(1, 40, 0)
+    expect(scrollToCell).toHaveBeenNthCalledWith(2, 40, 12)
+    expect(scrollToCell).toHaveBeenNthCalledWith(3, 10, 5)
+    expect(scrollToCell).toHaveBeenNthCalledWith(4, 70, 5)
+  })
+})
