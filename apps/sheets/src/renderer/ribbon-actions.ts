@@ -375,7 +375,18 @@ export function handleRibbonCommand(ctx: RibbonCommandContext, command: string):
       )
       return
     case 'clear-contents':
-      void runtime.univerAPI.executeCommand('sheet.command.clear-selection-content')
+      {
+        const ranges = runtime.univerAPI
+          .getActiveWorkbook()
+          ?.getActiveSheet()
+          ?.getSelection()
+          ?.getActiveRangeList()
+          .map((range) => range.getRange())
+        if (!ranges?.length) return
+        // One command owns all ranges, yielding one SET_RANGE_VALUES_MUTATION
+        // batch and a single undo/redo history entry while preserving styles.
+        void runtime.univerAPI.executeCommand('sheet.command.clear-selection-content', { ranges })
+      }
       return
     case 'clear-formats':
       void runtime.univerAPI.executeCommand('sheet.command.clear-selection-format')

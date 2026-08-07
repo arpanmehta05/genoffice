@@ -98,6 +98,18 @@ const IS_MAC = navigator.platform.toLowerCase().includes('mac')
 /// Excel's grow/shrink font walks its size ladder, not ±1.
 const FONT_SIZE_LADDER = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 26, 28, 36, 48, 72]
 
+function isInlineTextEditor(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  return target.closest('input, textarea, .univer-editor, [contenteditable="true"]') !== null
+}
+
+function isGridKeyTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  // Floating visuals own Delete/Backspace themselves (WorkbookVisuals stops
+  // the bubble event after deleting the selected object).
+  return target.closest('#univer-container') !== null && target.closest('.shape-editable') === null
+}
+
 function stepFontSize(current: number, direction: 1 | -1): number {
   if (direction === 1) {
     return FONT_SIZE_LADDER.find((size) => size > current) ?? FONT_SIZE_LADDER.at(-1) ?? current
@@ -288,6 +300,27 @@ export function ExcelShell({
   const [chartTextTarget, setChartTextTarget] = useState<ChartTextTarget | null>(null)
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
+      // Let the Univer cell editor and the shell's own inputs handle their
+      // native editing keys. A grid selection, including disjoint ranges,
+      // routes through the ribbon action so it shares the undoable command
+      // path with Clear Contents in the UI.
+      if (
+        (event.key === 'Delete' || event.key === 'Backspace') &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !event.shiftKey &&
+        !isInlineTextEditor(event.target) &&
+        isGridKeyTarget(event.target)
+      ) {
+        event.preventDefault()
+        // Run before Univer's Windows Backspace shortcut changes the active
+        // range. This also prevents its Delete shortcut from creating a
+        // second clear/undo entry after our multi-range command.
+        event.stopPropagation()
+        onCommand('clear-contents')
+        return
+      }
       if ((event.metaKey || event.ctrlKey) && event.key === '1') {
         event.preventDefault()
         setShowFormatCells(true)
@@ -303,8 +336,8 @@ export function ExcelShell({
         onCommand('toggle-show-formulas')
       }
     }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
   }, [onCommand])
   // Deselecting while on the contextual tab lands back on Home.
   useEffect(() => {

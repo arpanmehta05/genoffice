@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { HorizontalAlign } from '@univerjs/core'
 
@@ -130,5 +130,64 @@ describe('handleRibbonCommand number format', () => {
     const { ctx, model } = makeDispatchHarness()
     handleRibbonCommand(ctx, 'format:h:mm:ss AM/PM')
     expect(model.numberFormat).toBe('h:mm:ss AM/PM')
+  })
+})
+
+describe('handleRibbonCommand clear contents', () => {
+  it('passes every active selection range to one undoable clear command', () => {
+    const calls: { id: string; params: unknown }[] = []
+    const firstRange = { getRange: () => ({ startRow: 0, endRow: 0, startColumn: 0, endColumn: 1 }) }
+    const secondRange = { getRange: () => ({ startRow: 2, endRow: 4, startColumn: 3, endColumn: 3 }) }
+    const ctx = {
+      univerRef: {
+        current: {
+          univerAPI: {
+            getActiveWorkbook: () => ({
+              getActiveSheet: () => ({
+                getSelection: () => ({ getActiveRangeList: () => [firstRange, secondRange] }),
+              }),
+            }),
+            executeCommand: (id: string, params: unknown) => {
+              calls.push({ id, params })
+              return Promise.resolve(true)
+            },
+          },
+        },
+      },
+    } as unknown as RibbonCommandContext
+
+    handleRibbonCommand(ctx, 'clear-contents')
+
+    expect(calls).toEqual([
+      {
+        id: 'sheet.command.clear-selection-content',
+        params: {
+          ranges: [
+            { startRow: 0, endRow: 0, startColumn: 0, endColumn: 1 },
+            { startRow: 2, endRow: 4, startColumn: 3, endColumn: 3 },
+          ],
+        },
+      },
+    ])
+  })
+
+  it('does nothing when there is no active selection', () => {
+    const executeCommand = vi.fn<(id: string, params: unknown) => Promise<boolean>>(() =>
+      Promise.resolve(true),
+    )
+    const ctx = {
+      univerRef: {
+        current: {
+          univerAPI: {
+            getActiveWorkbook: () => ({ getActiveSheet: () => ({ getSelection: () => null }) }),
+            executeCommand,
+          },
+        },
+      },
+    } as unknown as RibbonCommandContext
+
+    handleRibbonCommand(ctx, 'clear-contents')
+
+    expect(executeCommand).not.toHaveBeenCalled()
   })
 })
