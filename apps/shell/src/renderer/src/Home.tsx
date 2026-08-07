@@ -1481,9 +1481,9 @@ export function Home() {
   // Genspark web projects take over the content area (like a selected project)
   const [cloudMode, setCloudMode] = useState(false)
   const [filter, setFilter] = useState('all')
-  const [rowMenu, setRowMenu] = useState<{ path: string; top: number; right: number } | null>(
-    null,
-  )
+  const [rowMenu, setRowMenu] = useState<
+    { path: string; right: number; top?: number; bottom?: number } | null
+  >(null)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [renaming, setRenaming] = useState<{ path: string; value: string } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string[] | null>(null)
@@ -1969,10 +1969,19 @@ export function Home() {
                   return
                 }
                 const rect = event.currentTarget.getBoundingClientRect()
+                const verticalGap = 6
+                // The regular file menu has up to eight actions. Prefer the
+                // side with enough room, opening upward at the bottom edge
+                // instead of making the Home page itself scroll.
+                const estimatedHeight = 336
+                const spaceBelow = window.innerHeight - rect.bottom - verticalGap
+                const openUpward = spaceBelow < estimatedHeight && rect.top > spaceBelow
                 setRowMenu({
                   path: entry.path,
-                  top: rect.bottom + 6,
                   right: Math.max(8, window.innerWidth - rect.right),
+                  ...(openUpward
+                    ? { bottom: Math.max(8, window.innerHeight - rect.top + verticalGap) }
+                    : { top: rect.bottom + verticalGap }),
                 })
               }}
             >
@@ -1983,7 +1992,11 @@ export function Home() {
               </svg>
             </button>
             {rowMenu?.path === entry.path && (
-              <div className="row-menu" role="menu" style={{ top: rowMenu.top, right: rowMenu.right }}>
+              <div
+                className="row-menu"
+                role="menu"
+                style={{ top: rowMenu.top, right: rowMenu.right, bottom: rowMenu.bottom }}
+              >
                 <button
                   role="menuitem"
                   onClick={() => {
