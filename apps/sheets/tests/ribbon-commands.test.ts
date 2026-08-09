@@ -134,17 +134,24 @@ describe('handleRibbonCommand number format', () => {
 })
 
 describe('handleRibbonCommand clear contents', () => {
-  it('passes every active selection range to one undoable clear command', () => {
+  it("delegates range discovery to Univer's authoritative selection service", () => {
     const calls: { id: string; params: unknown }[] = []
-    const firstRange = { getRange: () => ({ startRow: 0, endRow: 0, startColumn: 0, endColumn: 1 }) }
-    const secondRange = { getRange: () => ({ startRow: 2, endRow: 4, startColumn: 3, endColumn: 3 }) }
+    const firstRange = {
+      getRange: () => ({ startRow: 0, endRow: 0, startColumn: 0, endColumn: 1 }),
+    }
+    const secondRange = {
+      getRange: () => ({ startRow: 2, endRow: 4, startColumn: 3, endColumn: 3 }),
+    }
     const ctx = {
       univerRef: {
         current: {
           univerAPI: {
             getActiveWorkbook: () => ({
               getActiveSheet: () => ({
-                getSelection: () => ({ getActiveRangeList: () => [firstRange, secondRange] }),
+                getSelection: () => ({
+                  getActiveRange: () => firstRange,
+                  getActiveRangeList: () => [firstRange, secondRange],
+                }),
               }),
             }),
             executeCommand: (id: string, params: unknown) => {
@@ -158,20 +165,39 @@ describe('handleRibbonCommand clear contents', () => {
 
     handleRibbonCommand(ctx, 'clear-contents')
 
-    expect(calls).toEqual([
-      {
-        id: 'sheet.command.clear-selection-content',
-        params: {
-          ranges: [
-            { startRow: 0, endRow: 0, startColumn: 0, endColumn: 1 },
-            { startRow: 2, endRow: 4, startColumn: 3, endColumn: 3 },
-          ],
-        },
-      },
-    ])
+    expect(calls).toEqual([{ id: 'sheet.command.clear-selection-content', params: undefined }])
   })
 
-  it('does nothing when there is no active selection', () => {
+  it('does not depend on the facade active-range list shape', () => {
+    const calls: { id: string; params: unknown }[] = []
+    const primary = { getRange: () => ({ startRow: 0, endRow: 0, startColumn: 0, endColumn: 4 }) }
+    const ctx = {
+      univerRef: {
+        current: {
+          univerAPI: {
+            getActiveWorkbook: () => ({
+              getActiveSheet: () => ({
+                getSelection: () => ({
+                  getActiveRange: () => primary,
+                  getActiveRangeList: () => [],
+                }),
+              }),
+            }),
+            executeCommand: (id: string, params: unknown) => {
+              calls.push({ id, params })
+              return Promise.resolve(true)
+            },
+          },
+        },
+      },
+    } as unknown as RibbonCommandContext
+
+    handleRibbonCommand(ctx, 'clear-contents')
+
+    expect(calls).toEqual([{ id: 'sheet.command.clear-selection-content', params: undefined }])
+  })
+
+  it('lets Univer reject a clear when no selection exists', () => {
     const executeCommand = vi.fn<(id: string, params: unknown) => Promise<boolean>>(() =>
       Promise.resolve(true),
     )
@@ -188,45 +214,6 @@ describe('handleRibbonCommand clear contents', () => {
 
     handleRibbonCommand(ctx, 'clear-contents')
 
-    expect(executeCommand).not.toHaveBeenCalled()
-  })
-})
-
-describe('handleRibbonCommand grid navigation', () => {
-  it('moves Home, End, and Page keys through the active sheet facade', () => {
-    const active = { getRow: () => 40, getColumn: () => 5 }
-    const dataEnd = { getRow: () => 40, getColumn: () => 12 }
-    const getRange = vi.fn((row: number, column: number) => ({ getRow: () => row, getColumn: () => column }))
-    const scrollToCell = vi.fn()
-    const setActiveRange = vi.fn()
-    const worksheet = {
-      getSelection: () => ({
-        getActiveRange: () => active,
-        getNextDataRange: () => dataEnd,
-      }),
-      getRange,
-      getMaxRows: () => 100,
-      getMaxColumns: () => 20,
-      scrollToCell,
-    }
-    const ctx = {
-      univerRef: {
-        current: {
-          univerAPI: { getActiveWorkbook: () => ({ getActiveSheet: () => worksheet, setActiveRange }) },
-        },
-      },
-    } as unknown as RibbonCommandContext
-
-    handleRibbonCommand(ctx, 'navigate:home')
-    handleRibbonCommand(ctx, 'navigate:end')
-    handleRibbonCommand(ctx, 'navigate:page-up')
-    handleRibbonCommand(ctx, 'navigate:page-down')
-
-    expect(getRange).toHaveBeenCalledWith(40, 0)
-    expect(setActiveRange).toHaveBeenCalledTimes(4)
-    expect(scrollToCell).toHaveBeenNthCalledWith(1, 40, 0)
-    expect(scrollToCell).toHaveBeenNthCalledWith(2, 40, 12)
-    expect(scrollToCell).toHaveBeenNthCalledWith(3, 10, 5)
-    expect(scrollToCell).toHaveBeenNthCalledWith(4, 70, 5)
+    expect(executeCommand).toHaveBeenCalledWith('sheet.command.clear-selection-content')
   })
 })

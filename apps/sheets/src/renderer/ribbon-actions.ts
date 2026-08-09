@@ -156,44 +156,6 @@ export function parseStyleCommand(command: string): {
 export function handleRibbonCommand(ctx: RibbonCommandContext, command: string): void {
   const runtime = ctx.univerRef.current
   if (!runtime) return
-  if (command.startsWith('navigate:')) {
-    const workbook = runtime.univerAPI.getActiveWorkbook()
-    const worksheet = workbook?.getActiveSheet()
-    const selection = worksheet?.getSelection()
-    const activeRange = selection?.getActiveRange()
-    if (!workbook || !worksheet || !activeRange) return
-
-    const row = activeRange.getRow()
-    const column = activeRange.getColumn()
-    const pageRows = 30
-    let target = null
-    switch (command) {
-      case 'navigate:home':
-        target = worksheet.getRange(row, 0)
-        break
-      case 'navigate:end':
-        // Follow the row's data region when it exists, then fall back to the
-        // final worksheet column for an otherwise empty row.
-        target =
-          selection?.getNextDataRange(Direction.RIGHT) ??
-          worksheet.getRange(row, Math.max(0, worksheet.getMaxColumns() - 1))
-        break
-      case 'navigate:page-up':
-        target = worksheet.getRange(Math.max(0, row - pageRows), column)
-        break
-      case 'navigate:page-down':
-        target = worksheet.getRange(
-          Math.min(Math.max(0, worksheet.getMaxRows() - 1), row + pageRows),
-          column,
-        )
-        break
-      default:
-        return
-    }
-    workbook.setActiveRange(target)
-    worksheet.scrollToCell(target.getRow(), target.getColumn())
-    return
-  }
   if (command === 'undo' || command === 'redo') {
     void runtime.univerAPI[command]()
     return
@@ -414,18 +376,9 @@ export function handleRibbonCommand(ctx: RibbonCommandContext, command: string):
       )
       return
     case 'clear-contents':
-      {
-        const ranges = runtime.univerAPI
-          .getActiveWorkbook()
-          ?.getActiveSheet()
-          ?.getSelection()
-          ?.getActiveRangeList()
-          .map((range) => range.getRange())
-        if (!ranges?.length) return
-        // One command owns all ranges, yielding one SET_RANGE_VALUES_MUTATION
-        // batch and a single undo/redo history entry while preserving styles.
-        void runtime.univerAPI.executeCommand('sheet.command.clear-selection-content', { ranges })
-      }
+      // Omit ranges so Univer reads SheetsSelectionsService, the canonical
+      // source for both the visible primary and Ctrl-disjoint selections.
+      void runtime.univerAPI.executeCommand('sheet.command.clear-selection-content')
       return
     case 'clear-formats':
       void runtime.univerAPI.executeCommand('sheet.command.clear-selection-format')
