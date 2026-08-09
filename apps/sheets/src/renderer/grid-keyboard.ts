@@ -1,6 +1,6 @@
 import { CommandType, ICommandService, type IDisposable } from '@univerjs/core'
 import { whenSheetEditorFocused } from '@univerjs/sheets-ui'
-import { IShortcutService } from '@univerjs/ui'
+import { IShortcutService, KeyCode } from '@univerjs/ui'
 
 import type { UniverRuntime } from './univer-state'
 
@@ -9,6 +9,7 @@ const PAGE_DOWN = 34
 const END = 35
 const HOME = 36
 const PAGE_ROWS = 30
+const CLEAR_SELECTION_CONTENT = 'sheet.command.clear-selection-content'
 
 export const GridNavigationCommand = {
   Home: 'genoffice.sheet.operation.navigate-home',
@@ -55,8 +56,8 @@ function navigate(runtime: UniverRuntime, command: GridNavigationCommandId): boo
 
 /**
  * Registers grid navigation with Univer's own shortcut dispatcher. This shares
- * its capture listener and its editor context predicates, avoiding races with
- * the built-in Delete/Backspace clear shortcut.
+ * its capture listener and its editor context predicates. Register both
+ * Delete and Backspace because Univer only ships the latter on macOS.
  */
 export function installGridKeyboardShortcuts(runtime: UniverRuntime): IDisposable {
   const injector = runtime.univer.__getInjector()
@@ -82,6 +83,14 @@ export function installGridKeyboardShortcuts(runtime: UniverRuntime): IDisposabl
         binding,
         preconditions: whenSheetEditorFocused,
         priority: 1,
+      }),
+    ),
+    ...[KeyCode.DELETE, KeyCode.BACKSPACE].map((binding) =>
+      shortcutService.registerShortcut({
+        id: CLEAR_SELECTION_CONTENT,
+        binding,
+        preconditions: whenSheetEditorFocused,
+        priority: 2,
       }),
     ),
   ]

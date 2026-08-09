@@ -62,13 +62,17 @@ function makeHarness() {
 }
 
 describe('installGridKeyboardShortcuts', () => {
-  it("registers Home, End, PageUp, and PageDown in Univer's dispatcher", () => {
+  it("registers navigation plus Delete and Backspace in Univer's dispatcher", () => {
     const harness = makeHarness()
     const disposable = installGridKeyboardShortcuts(harness.runtime as never)
 
     expect(harness.commands.map(({ id }) => id)).toEqual(Object.values(GridNavigationCommand))
     expect(harness.commands.every(({ type }) => type === CommandType.OPERATION)).toBe(true)
-    expect(harness.shortcuts.map(({ binding }) => binding)).toEqual([36, 35, 33, 34])
+    expect(harness.shortcuts.map(({ binding }) => binding)).toEqual([36, 35, 33, 34, 46, 8])
+    expect(harness.shortcuts.slice(-2).map(({ id }) => id)).toEqual([
+      'sheet.command.clear-selection-content',
+      'sheet.command.clear-selection-content',
+    ])
 
     harness.commands.find(({ id }) => id === GridNavigationCommand.Home)?.handler()
     harness.commands.find(({ id }) => id === GridNavigationCommand.End)?.handler()
@@ -81,7 +85,7 @@ describe('installGridKeyboardShortcuts', () => {
     expect(harness.scrollToCell).toHaveBeenNthCalledWith(4, 70, 5)
 
     disposable.dispose()
-    expect(harness.disposals).toHaveBeenCalledTimes(8)
+    expect(harness.disposals).toHaveBeenCalledTimes(10)
   })
 
   it("accepts Univer's hidden grid editor but rejects actual text editing", () => {
