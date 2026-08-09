@@ -303,8 +303,8 @@ export function ExcelShell({
         onCommand('toggle-show-formulas')
       }
     }
-    window.addEventListener('keydown', onKeyDown, true)
-    return () => window.removeEventListener('keydown', onKeyDown, true)
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
   }, [onCommand])
   // Deselecting while on the contextual tab lands back on Home.
   useEffect(() => {

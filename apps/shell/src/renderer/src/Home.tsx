@@ -1481,9 +1481,7 @@ export function Home() {
   // Genspark web projects take over the content area (like a selected project)
   const [cloudMode, setCloudMode] = useState(false)
   const [filter, setFilter] = useState('all')
-  const [rowMenu, setRowMenu] = useState<
-    { path: string; right: number; top?: number; bottom?: number } | null
-  >(null)
+  const [rowMenu, setRowMenu] = useState<string | null>(null)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [renaming, setRenaming] = useState<{ path: string; value: string } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string[] | null>(null)
@@ -1609,7 +1607,7 @@ export function Home() {
     if (rowMenu === null && confirmDelete === null) return
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Element | null
-      if (rowMenu !== null && !target?.closest?.('.recent-actions, .row-menu')) setRowMenu(null)
+      if (rowMenu !== null && !target?.closest?.('.recent-actions')) setRowMenu(null)
     }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -1962,28 +1960,8 @@ export function Home() {
             <button
               className="more-btn"
               aria-label={t('moreActions')}
-              aria-expanded={rowMenu?.path === entry.path}
-              onClick={(event) => {
-                if (rowMenu?.path === entry.path) {
-                  setRowMenu(null)
-                  return
-                }
-                const rect = event.currentTarget.getBoundingClientRect()
-                const verticalGap = 6
-                // The regular file menu has up to eight actions. Prefer the
-                // side with enough room, opening upward at the bottom edge
-                // instead of making the Home page itself scroll.
-                const estimatedHeight = 336
-                const spaceBelow = window.innerHeight - rect.bottom - verticalGap
-                const openUpward = spaceBelow < estimatedHeight && rect.top > spaceBelow
-                setRowMenu({
-                  path: entry.path,
-                  right: Math.max(8, window.innerWidth - rect.right),
-                  ...(openUpward
-                    ? { bottom: Math.max(8, window.innerHeight - rect.top + verticalGap) }
-                    : { top: rect.bottom + verticalGap }),
-                })
-              }}
+              aria-expanded={rowMenu === entry.path}
+              onClick={() => setRowMenu(rowMenu === entry.path ? null : entry.path)}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
                 <circle cx="3.2" cy="8" r="1.4" fill="currentColor" />
@@ -1991,12 +1969,8 @@ export function Home() {
                 <circle cx="12.8" cy="8" r="1.4" fill="currentColor" />
               </svg>
             </button>
-            {rowMenu?.path === entry.path && (
-              <div
-                className="row-menu"
-                role="menu"
-                style={{ top: rowMenu.top, right: rowMenu.right, bottom: rowMenu.bottom }}
-              >
+            {rowMenu === entry.path && (
+              <div className="row-menu" role="menu">
                 <button
                   role="menuitem"
                   onClick={() => {

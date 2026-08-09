@@ -7,7 +7,6 @@
 import {
   BooleanNumber,
   BorderStyleTypes,
-  Direction,
   WrapStrategy,
   type ICellData,
   type IStyleData,
